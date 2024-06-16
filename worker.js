@@ -18,3 +18,19 @@ const createImageThumbnail = async (path, options) => {
   }
 };
 
+fileQueue.process(async (job) => {
+  const { fileId } = job.data;
+  if (!fileId) throw Error('Missing fileId');
+
+  const { userId } = job.data;
+  if (!userId) throw Error('Missing userId');
+
+  const fileDocument = await DBClient.db
+    .collection('files')
+    .findOne({ _id: ObjectId(fileId), userId: ObjectId(userId) });
+  if (!fileDocument) throw Error('File not found');
+
+  createImageThumbnail(fileDocument.localPath, { width: 500 });
+  createImageThumbnail(fileDocument.localPath, { width: 250 });
+  createImageThumbnail(fileDocument.localPath, { width: 100 });
+});
