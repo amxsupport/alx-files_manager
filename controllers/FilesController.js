@@ -41,3 +41,58 @@ class FilesController {
       if (!parentFile) return res.status(400).send({ error: 'Parent not found' });
       if (!['folder'].includes(parentFile.type)) return res.status(400).send({ error: 'Parent is not a folder' });
     }
+    const dbFile = {
+      userId: user._id,
+      name: fileName,
+      type: fileType,
+      isPublic: fileIsPublic,
+      parentId: idParent,
+    };
+
+    if (['folder'].includes(fileType)) {
+      await DBClient.db.collection('files').insertOne(dbFile);
+      return res.status(201).send({
+        id: dbFile._id,
+        userId: dbFile.userId,
+        name: dbFile.name,
+        type: dbFile.type,
+        isPublic: dbFile.isPublic,
+        parentId: dbFile.parentId,
+      });
+    }
+
+    const pathDir = process.env.FOLDER_PATH || '/tmp/files_manager';
+    const uuidFile = uuidv4();
+
+    const buff = Buffer.from(fileData, 'base64');
+    const pathFile = `${pathDir}/${uuidFile}`;
+
+    await fs.mkdir(pathDir, { recursive: true }, (error) => {
+      if (error) return res.status(400).send({ error: error.message });
+      return true;
+    });
+
+    await fs.writeFile(pathFile, buff, (error) => {
+      if (error) return res.status(400).send({ error: error.message });
+      return true;
+    });
+
+    dbFile.localPath = pathFile;
+    await DBClient.db.collection('files').insertOne(dbFile);
+
+    fileQueue.add({
+      userId: dbFile.userId,
+      fileId: dbFile._id,
+    });
+
+    return res.status(201).send({
+      id: dbFile._id,
+      userId: dbFile.userId,
+      name: dbFile.name,
+      type: dbFile.type,
+      isPublic: dbFile.isPublic,
+      parentId: dbFile.parentId,
+    });
+  }
+
+
